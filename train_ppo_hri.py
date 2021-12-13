@@ -69,15 +69,16 @@ if __name__ == "__main__":
     parser.add_argument("--total-timesteps", help="total timesteps", type=int, default=16000000)
     parser.add_argument("-b", "--batch-size", help="batch size", type=int, default=256)
     parser.add_argument("--ent-coef", help="coeff for entropy", type=float, default=0.0)
-    parser.add_argument("--hidden-dim", help="dim of hidden features", type=int, default=512)
+    parser.add_argument("--hidden-dim", help="dim of hidden features", type=int, default=256)
     parser.add_argument("--num-layer", help="# of layers", type=int, default=2)
     parser.add_argument("--use-sde", help="Whether to use generalized State Dependent Exploration", type=int, default=1)
     parser.add_argument("--sde-freq", help="Sample a new noise matrix every n steps", type=int, default=4)
     parser.add_argument("--target-kl", help="Limit the KL divergence between updates", type=float, default=0.03)
     parser.add_argument("--gae-lambda", help="Factor for trade-off of bias vs variance", type=float, default=0.98)
     parser.add_argument("--clip-init", help="Initial value of clipping", type=float, default=0.2)
-    parser.add_argument("--n-epochs", help="Number of epoch when optimizing the surrogate loss", type=int, default=20)
-    parser.add_argument("--normalize", help="Normalize observation", type=int, default=1)    
+    parser.add_argument("--n-epochs", help="Number of epoch when optimizing the surrogate loss", type=int, default=10)
+    parser.add_argument("--normalize", help="Normalize observation", type=int, default=1)
+    parser.add_argument("--act-fun", help="activate function", type=str, default='tanh')    
     args = parser.parse_args()
     
     # log name
@@ -99,6 +100,7 @@ if __name__ == "__main__":
     args.tensorboard_log += '_gae_' + str(args.gae_lambda)
     args.tensorboard_log += '_clip_' + str(args.clip_init)
     args.tensorboard_log += '_nepochs_' + str(args.n_epochs)
+    args.tensorboard_log += '_actfun_' + args.act_fun
     args.tensorboard_log += '_' + args.reward_flag
     
     tic = time.clock()
@@ -134,8 +136,12 @@ if __name__ == "__main__":
         # network arch
         net_arch = [dict(pi=[args.hidden_dim]*args.num_layer, 
                          vf=[args.hidden_dim]*args.num_layer)]
-        #TODO: 默认的激活函数是tanh，可以改为relu
-        policy_kwargs = dict(net_arch=net_arch, activation_fn=nn.ReLU)
+        if args.act_fun == 'tanh':
+            policy_kwargs = dict(net_arch=net_arch, activation_fn=nn.Tanh)
+        elif args.act_fun == 'relu':
+            policy_kwargs = dict(net_arch=net_arch, activation_fn=nn.ReLU)
+        else:
+            policy_kwargs = dict(net_arch=net_arch)
     
         # train model
         model = SeparateRewardPPO(

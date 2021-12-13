@@ -5,7 +5,8 @@ Created on Fri Dec 10 10:58:00 2021
 
 @author: wenminggong
 
-VecNormalize wrapper for separate-reward VecEnv, normalize separate rewards respectively, [total_r, robot_r, pref_r]
+VecNormalize wrapper for separate-reward VecEnv, 
+only normalize observation, not for separate rewards [total_r, robot_r, pref_r].
 """
 
 
@@ -61,10 +62,47 @@ class SeparateRewardVecNormalize(VecNormalize):
         self.ret_rms = RunningMeanStd(shape=(3,))
         
     
+    def step_wait(self) -> VecEnvStepReturn:
+        """
+        Apply sequence of actions to sequence of environments
+        actions -> (observations, rewards, dones)
+
+        where ``dones`` is a boolean vector indicating whether each element is new;
+        rewards are not scaled
+        """
+        obs, rewards, dones, infos = self.venv.step_wait()
+        self.old_obs = obs
+        self.old_reward = rewards
+
+        if self.training:
+            if isinstance(obs, dict) and isinstance(self.obs_rms, dict):
+                for key in self.obs_rms.keys():
+                    self.obs_rms[key].update(obs[key])
+            else:
+                self.obs_rms.update(obs)
+
+        obs = self.normalize_obs(obs)
+        
+        '''
+        if self.training:
+            self._update_reward(rewards)
+        rewards = self.normalize_reward(rewards)
+        '''
+        # Normalize the terminal observations
+        for idx, done in enumerate(dones):
+            if not done:
+                continue
+            if "terminal_observation" in infos[idx]:
+                infos[idx]["terminal_observation"] = self.normalize_obs(infos[idx]["terminal_observation"])
+
+        # self.ret[dones] = 0
+        return obs, rewards, dones, infos
+    
+    
     def _update_reward(self, reward: np.ndarray) -> None:
         """Update reward normalization statistics."""
         # why use self.ret to update mean and std? 
-        # self.ret = self.ret * self.gamma + reward
-        # self.ret_rms.update(self.ret)
-        self.ret_rms.update(reward) # direct update reward moving mean and std
+        self.ret = self.ret * self.gamma + reward
+        self.ret_rms.update(self.ret)
+        # self.ret_rms.update(reward) # direct update reward moving mean and std
         
