@@ -6,7 +6,6 @@ Created on Sat Aug  7 20:42:37 2021
 @author: wenminggong
 
 new function for policy evaluation
-adapted from stable_baselines3.common.evaluation
 only for not observation normalization
 """
 
@@ -16,6 +15,8 @@ import gym
 from stable_baselines3.common import base_class
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecEnv, DummyVecEnv
 from separate_reward_ppo import SeparateRewardPPO
+from separate_reward_vec_normalize import SeparateRewardVecNormalize
+from make_vec_separate_reward_env import make_vec_separate_reward_env
 import numpy as np
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import os
@@ -24,13 +25,12 @@ import os
 def evaluate_policy_hri(
     model: "base_class.BaseAlgorithm",
     env: Union[gym.Env, VecEnv, str],
-    n_eval_episodes: int = 100,
+    n_eval_episodes: int = 20,
     seed: int = 856,
     deterministic: bool = True,
-    n_envs: int = 4,
-    reward_flag: str = 'pref_reward',
+    n_envs: int = 10,
     return_episode_rewards: bool = False,
-) -> Union[Tuple[float, float], Tuple[List[float], List[int]]]:
+) -> Union[Tuple[float, float, float, float, float, float, float], Tuple[List[float], List[float], List[float], List[int]]]:
 
     def make_env(env_id, rank):
         def _init():
@@ -45,66 +45,92 @@ def evaluate_policy_hri(
         return _init
     
     if not isinstance(env, VecEnv):
-        envs = SubprocVecEnv([make_env(env, i) for i in range(n_envs)])
-
-    episode_rewards = []
+        venv = SubprocVecEnv([make_env(env, i) for i in range(n_envs)])
+    else:
+        venv = env
+       
+    episode_total_returns = []
+    episode_robot_returns = []
+    episode_pref_returns = []
     episode_lengths = []
+    task_success = []
     episode_count = 0
-    n_steps = 200
+    dones = [False] * venv.num_envs
     while episode_count < n_eval_episodes:
-        observations = envs.reset()
-        current_rewards = np.zeros(n_envs)
+        observations = venv.reset()
+        current_total_returns = np.zeros(n_envs)
+        current_robot_returns = np.zeros(n_envs)
+        current_pref_returns = np.zeros(n_envs)
         current_lengths = np.zeros(n_envs, dtype="int")
         # states = None
-        for _ in range(n_steps):
+        while not all(dones):
             actions, states = model.predict(observations, deterministic=deterministic)
-            observations, rewards, dones, infos = envs.step(actions)
-            # print("rewards:", rewards)
-            if reward_flag == 'total_reward':
-                pred_rewards = rewards[:, 0] + rewards[:, 1]
-            elif reward_flag == 'robot_reward':
-                pred_rewards = rewards[:, 0]
-            else:
-                pred_rewards = rewards[:, 1]
-            current_rewards += pred_rewards
+            observations, rewards, dones, infos = venv.step(actions)
+            total_reward = rewards[:, 0]
+            robot_reward = rewards[:, 1]
+            pref_reward = rewards[:, 2]
+            current_total_returns += total_reward
+            current_robot_returns += robot_reward
+            current_pref_returns += pref_reward
             current_lengths += 1
-        episode_rewards += list(current_rewards)
+        for i in range(len(infos)):
+            task_success.append(infos[i]['task_success'])
+        episode_total_returns += list(current_total_returns)
+        episode_robot_returns += list(current_robot_returns)
+        episode_pref_returns += list(current_pref_returns)
         episode_lengths += list(current_lengths)
         episode_count += n_envs
         
-    mean_reward = np.mean(episode_rewards)
-    std_reward = np.std(episode_rewards)
+    mean_total_return = np.mean(np.array(episode_total_returns))
+    mean_robot_return = np.mean(np.array(episode_robot_returns))
+    mean_pref_return = np.mean(np.array(episode_pref_returns))
+    std_total_return = np.std(np.array(episode_total_returns))
+    std_robot_return = np.std(np.array(episode_robot_returns))
+    std_pref_return = np.std(np.array(episode_pref_returns))
+    task_success_rate = sum(task_success) / len(task_success)
 
     if return_episode_rewards:
-        return episode_rewards, episode_lengths
-    return mean_reward, std_reward
+        return episode_total_returns, episode_robot_returns, episode_pref_returns, episode_lengths
+    return mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate
+
+
+def normalize_obs(obs, nor_venv):
+    return np.clip((obs - nor_venv.obs_rms.mean) / np.sqrt(nor_venv.obs_rms.var + nor_venv.epsilon), -nor_venv.clip_obs, nor_venv.clip_obs)
 
 
 if __name__ == "__main__":
     env_name = 'FeedingSeparateRewardBaxter-v1'
-    model = SeparateRewardPPO.load(os.path.join('logs/PPO_in_Assistive-Gym', 'FeedingSeparateRewardBaxter-v1', 
-                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_512_sde_1_sdefreq_4_targetkl_0.03_gae_0.98_clip_0.2_nepochs_20_robot_reward_seed_856',
+    model = SeparateRewardPPO.load(os.path.join('logs/PPO_results', 'normalize_obs_and_reward_scale_relu', 
+                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_512_sde_1_sdefreq_4_targetkl_0.03_gae_0.98_clip_0.2_nepochs_20_total_reward_seed_856',
                                                 'model', 'timesteps_16000000_ppo_model.zip'))
-    # model = SeparateRewardPPO.load('timesteps_10400000_ppo_model.zip')
+
+    venv = make_vec_separate_reward_env(env_id=env_name,
+                                n_envs=10,
+                                vec_env_cls=SubprocVecEnv,
+                                seed = 856)
+    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/PPO_results', 'normalize_obs_and_reward_scale_relu', 
+                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_512_sde_1_sdefreq_4_targetkl_0.03_gae_0.98_clip_0.2_nepochs_20_total_reward_seed_856',
+                                                'env', 'timesteps_16000000_env'), venv)
     
-    # mean_reward, std_reward = evaluate_policy_hri(model=model, env=env_name, return_episode_rewards=False)
-    # print('mean reward: {}, std reward: {}'.format(mean_reward, std_reward))
-    print(model)
-    print(model.env)
+    mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate = evaluate_policy_hri(model, nor_venv, n_eval_episodes=20)
+    print('mean_total_return: {}, mean_robot_return: {}, mean_pref_return: {}'.format(mean_total_return, mean_robot_return, mean_pref_return))
+    print('std_total_return: {}, std_robot_return: {}, std_pref_return: {}'.format(std_total_return, std_robot_return, std_pref_return))
+    print('task_success_rate: {}'.format(task_success_rate))
+    
     # render the policy in env
     env = gym.make(env_name)
-    # env = gym.wrappers.NormalizeObservation(env)
     episode_total_returns = []
     episode_robot_returns = []
     episode_pref_returns = []
     length_list = []
     # while True:
-    for i in range(4):
-        env.seed(856)
-        env.action_space.seed(856)
+    for i in range(2):
+        env.seed(50 * i)
+        env.action_space.seed(50 * i)
         done = False
         env.render()
         observation = env.reset()
+        observation = normalize_obs(observation, nor_venv)
         episode_total_return = 0
         episode_robot_return = 0
         episode_pref_return = 0
@@ -112,12 +138,13 @@ if __name__ == "__main__":
         while not done:
             length += 1
             action, _states = model.predict(observation, deterministic=True)
-            print(action)
+            # print(action)
             observation, reward, done, info = env.step(action)
+            observation = normalize_obs(observation, nor_venv)
             reward = np.array(reward)
-            episode_robot_return += reward[0]
-            episode_pref_return += reward[1]
-            episode_total_return = episode_total_return + reward[0] + reward[1]
+            episode_robot_return += reward[1]
+            episode_pref_return += reward[2]
+            episode_total_return += reward[0]
     
         episode_total_returns.append(episode_total_return)
         episode_robot_returns.append(episode_robot_return)
@@ -128,4 +155,7 @@ if __name__ == "__main__":
     print("robot returns:", episode_robot_returns)
     print("pref returns:", episode_pref_returns)
     print("episode length:", length_list)
+    
+    nor_venv.close()
+    env.close()
     
