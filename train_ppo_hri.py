@@ -103,7 +103,8 @@ if __name__ == "__main__":
     args.tensorboard_log += '_actfun_' + args.act_fun
     args.tensorboard_log += '_' + args.reward_flag
     
-    tic = time.clock()
+    # get system current time
+    tic = time.perf_counter()
     # set random seeds
     random.seed(args.seed)
     for seed in [random.randint(0,1000) for _ in range(1)]:
@@ -172,6 +173,6 @@ if __name__ == "__main__":
         model.learn(total_timesteps=args.total_timesteps,
                     callback=callback)
     
-    print('total time:', time.clock() - tic)
+    print('total time:', time.perf_counter() - tic)
     
     
