@@ -55,7 +55,6 @@ def evaluate_policy_hri(
     episode_lengths = []
     task_success = []
     episode_count = 0
-    dones = [False] * venv.num_envs
     while episode_count < n_eval_episodes:
         observations = venv.reset()
         current_total_returns = np.zeros(n_envs)
@@ -63,6 +62,7 @@ def evaluate_policy_hri(
         current_pref_returns = np.zeros(n_envs)
         current_lengths = np.zeros(n_envs, dtype="int")
         # states = None
+        dones = [False] * venv.num_envs
         while not all(dones):
             actions, states = model.predict(observations, deterministic=deterministic)
             observations, rewards, dones, infos = venv.step(actions)
@@ -88,7 +88,9 @@ def evaluate_policy_hri(
     std_robot_return = np.std(np.array(episode_robot_returns))
     std_pref_return = np.std(np.array(episode_pref_returns))
     task_success_rate = sum(task_success) / len(task_success)
-
+    
+    print(episode_total_returns)
+    print(episode_pref_returns)
     if return_episode_rewards:
         return episode_total_returns, episode_robot_returns, episode_pref_returns, episode_lengths
     return mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate
@@ -100,17 +102,17 @@ def normalize_obs(obs, nor_venv):
 
 if __name__ == "__main__":
     env_name = 'FeedingSeparateRewardBaxter-v1'
-    model = SeparateRewardPPO.load(os.path.join('logs/PPO_results', 'normalize_obs_and_reward_scale_relu', 
-                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_512_sde_1_sdefreq_4_targetkl_0.03_gae_0.98_clip_0.2_nepochs_20_total_reward_seed_856',
-                                                'model', 'timesteps_16000000_ppo_model.zip'))
+    model = SeparateRewardPPO.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
+                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
+                                                'model', 'timesteps_2400000_ppo_model.zip'))
 
     venv = make_vec_separate_reward_env(env_id=env_name,
                                 n_envs=10,
                                 vec_env_cls=SubprocVecEnv,
                                 seed = 856)
-    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/PPO_results', 'normalize_obs_and_reward_scale_relu', 
-                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_512_sde_1_sdefreq_4_targetkl_0.03_gae_0.98_clip_0.2_nepochs_20_total_reward_seed_856',
-                                                'env', 'timesteps_16000000_env'), venv)
+    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
+                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
+                                                'env', 'timesteps_2400000_env'), venv)
     
     mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate = evaluate_policy_hri(model, nor_venv, n_eval_episodes=20)
     print('mean_total_return: {}, mean_robot_return: {}, mean_pref_return: {}'.format(mean_total_return, mean_robot_return, mean_pref_return))
