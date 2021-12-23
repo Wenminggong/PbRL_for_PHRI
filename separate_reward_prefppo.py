@@ -11,23 +11,17 @@ from gym import spaces
 from torch.nn import functional as F
 
 from stable_baselines3.common import logger
-from on_policy_with_reward_algorithm import OnPolicyRewardAlgorithm
+from separate_reward_on_policy_with_reward_algorithm import SeparateRewardOnPolicyRewardAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn
 
 
-class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
+class SeparateRewardPrefPPO(SeparateRewardOnPolicyRewardAlgorithm):
     """
-    Proximal Policy Optimization algorithm (PPO) (clip version)
-
-    Paper: https://arxiv.org/abs/1707.06347
-    Code: This implementation borrows code from OpenAI Spinning Up (https://github.com/openai/spinningup/)
-    https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail and
-    and Stable Baselines (PPO2 from https://github.com/hill-a/stable-baselines)
-
-    Introduction to PPO: https://spinningup.openai.com/en/latest/algorithms/ppo.html
-
+    Preference-based Reinforcement Learning with Proximal Policy Optimization algorithm (PPO) (clip version)
+    
+    :param reward_model: the reward model to use
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: The learning rate, it can be a function
@@ -93,7 +87,6 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         num_interaction: int = 5000, 
-        num_feed: int = 1,
         feed_type: int = 0,
         re_update: int = 100,
         max_feed: int = 1400,
@@ -102,6 +95,7 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
         size_segment: int = 25,
         max_ep_len: int = 1000,
         _init_setup_model: bool = True,
+        reward_flag: str = 'total_reward',
     ):
 
         super(SeparateRewardPrefPPO, self).__init__(
@@ -124,7 +118,6 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
             create_eval_env=create_eval_env,
             seed=seed,
             num_interaction=num_interaction,
-            num_feed=num_feed,
             feed_type=feed_type,
             re_update=re_update,
             max_feed=max_feed,
@@ -132,6 +125,7 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
             size_segment=size_segment,
             max_ep_len=max_ep_len,
             _init_setup_model=False,
+            reward_flag=reward_flag,
         )
 
         self.batch_size = batch_size
@@ -154,6 +148,7 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
                 assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
+
 
     def train(self) -> None:
         """
@@ -248,20 +243,21 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
 
         # Logs
-        logger.record("train/entropy_loss", np.mean(entropy_losses))
-        logger.record("train/policy_gradient_loss", np.mean(pg_losses))
-        logger.record("train/value_loss", np.mean(value_losses))
-        logger.record("train/approx_kl", np.mean(approx_kl_divs))
-        logger.record("train/clip_fraction", np.mean(clip_fractions))
-        logger.record("train/loss", loss.item())
-        logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
+        self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
+        self.logger.record("train/value_loss", np.mean(value_losses))
+        self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
+        self.logger.record("train/clip_fraction", np.mean(clip_fractions))
+        self.logger.record("train/loss", loss.item())
+        self.logger.record("train/explained_variance", explained_var)
         if hasattr(self.policy, "log_std"):
-            logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
-        logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        logger.record("train/clip_range", clip_range)
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
-            logger.record("train/clip_range_vf", clip_range_vf)
+            self.logger.record("train/clip_range_vf", clip_range_vf)
+            
             
     def train_unsuper(self) -> None:
         """
@@ -356,20 +352,20 @@ class SeparateRewardPrefPPO(OnPolicyRewardAlgorithm):
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
 
         # Logs
-        logger.record("train/entropy_loss", np.mean(entropy_losses))
-        logger.record("train/policy_gradient_loss", np.mean(pg_losses))
-        logger.record("train/value_loss", np.mean(value_losses))
-        logger.record("train/approx_kl", np.mean(approx_kl_divs))
-        logger.record("train/clip_fraction", np.mean(clip_fractions))
-        logger.record("train/loss", loss.item())
-        logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
+        self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
+        self.logger.record("train/value_loss", np.mean(value_losses))
+        self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
+        self.logger.record("train/clip_fraction", np.mean(clip_fractions))
+        self.logger.record("train/loss", loss.item())
+        self.logger.record("train/explained_variance", explained_var)
         if hasattr(self.policy, "log_std"):
-            logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
-        logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        logger.record("train/clip_range", clip_range)
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
-            logger.record("train/clip_range_vf", clip_range_vf)
+            self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
         self,
