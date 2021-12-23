@@ -232,9 +232,13 @@ class RewardModel:
         # rewards = np.array(n_envs, episode_length, 1)
         num_env = obses.shape[0]
         for index in range(num_env):
-            # not limit self.inputs size
             self.inputs.append(obses[index])
             self.targets.append(rewards[index])
+        # limit the self.inputs size to self.max_size
+        cur_length = len(self.inputs)
+        if cur_length > self.max_size:
+            self.inputs = self.inputs[cur_length-self.max_size:]
+            self.targets = self.targets[cur_length-self.max_size:]
         
     def get_rank_probability(self, x_1, x_2):
         # get probability x_1 > x_2
