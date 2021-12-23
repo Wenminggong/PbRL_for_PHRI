@@ -119,7 +119,7 @@ class SeparateRewardMonitor(Monitor):
             ep_robot_rew = sum(self.robot_rewards)
             ep_pref_rew = sum(self.pref_rewards)
             ep_len = len(self.total_rewards)
-            ep_info = {"total_reward": round(ep_total_rew, 6), "robot_reward": round(ep_robot_rew, 6), "pref_reward": round(ep_pref_rew, 6), "l": ep_len, "t": round(time.time() - self.t_start, 6)}
+            ep_info = {"total_reward": round(ep_total_rew, 6), "robot_reward": round(ep_robot_rew, 6), "pref_reward": round(ep_pref_rew, 6), "l": ep_len, "t": round(time.time() - self.t_start, 6), "task_success": info['task_success']}
             for key in self.info_keywords:
                 ep_info[key] = info[key]
             self.episode_total_returns.append(ep_total_rew)
@@ -187,6 +187,6 @@ class SeparateRewardResultsWriter(ResultsWriter):
                 filename = filename + "." + Monitor.EXT
         self.file_handler = open(filename, "wt")
         self.file_handler.write("#%s\n" % json.dumps(header))
-        self.logger = csv.DictWriter(self.file_handler, fieldnames=("total_reward", "robot_reward", "pref_reward", "l", "t") + extra_keys)
+        self.logger = csv.DictWriter(self.file_handler, fieldnames=("total_reward", "robot_reward", "pref_reward", "l", "t", "task_success") + extra_keys)
         self.logger.writeheader()
         self.file_handler.flush()

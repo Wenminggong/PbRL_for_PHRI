@@ -5,17 +5,19 @@ import torch.nn.functional as F
 import torch.utils.data as data
 import torch.optim as optim
 import itertools
-import tqdm
+# import tqdm
 import copy
 import scipy.stats as st
 import os
 import time
 
 from scipy.stats import norm
+import psutil
 
 device = 'cuda'
 
 def gen_net(in_size=1, out_size=1, H=128, n_layers=3, activation='tanh'):
+    # 3层隐藏层
     net = []
     for i in range(n_layers):
         net.append(nn.Linear(in_size, H))
@@ -31,7 +33,9 @@ def gen_net(in_size=1, out_size=1, H=128, n_layers=3, activation='tanh'):
 
     return net
 
+
 def compute_smallest_dist(obs, full_obs):
+    # not be used
     obs = torch.from_numpy(obs).float()
     full_obs = torch.from_numpy(full_obs).float()
     batch_size = 100
@@ -57,16 +61,54 @@ def compute_smallest_dist(obs, full_obs):
         total_dists = torch.cat(total_dists)
     return total_dists.unsqueeze(1)
 
+
 class RewardModel:
     def __init__(self, ds, da, 
                  ensemble_size=3, lr=3e-4, mb_size = 128, size_segment=1, 
-                 env_maker=None, max_size=100, activation='tanh', capacity=5e5,  
+                 env_maker=None, max_size=10000, activation='tanh', capacity=5e5,  
                  large_batch=1, label_margin=0.0, 
                  teacher_beta=-1, teacher_gamma=1, 
                  teacher_eps_mistake=0, 
                  teacher_eps_skip=0, 
                  teacher_eps_equal=0):
-        
+        '''
+        Parameters
+        ----------
+        ds : TYPE, int
+            the dimension of state.
+        da : TYPE, int
+            the dimension of action.
+        ensemble_size : TYPE, int
+            use how many reward_predictor to ensemble. The default is 3.
+        lr : TYPE, float
+            reward predictor learning rate. The default is 3e-4.
+        mb_size : TYPE, int
+            sample mb_size trajectory pairs to query. The default is 128.
+        size_segment : TYPE, int
+            trajectory's length. The default is 1.
+        env_maker : TYPE, optional
+            DESCRIPTION. The default is None.
+        max_size : TYPE, int
+            the max size to store unlabel trajectories. The default is 100.
+        activation : TYPE, str
+            reward model activate function. The default is 'tanh'.
+        capacity : TYPE, int
+            the capacity of reward buffer. The default is 5e5.
+        large_batch : TYPE, int
+            initial query buffer size = large_batch * mb_size, then select mb_size to query. The default is 1.
+        label_margin : TYPE, float
+            reward margin to simulation human label. The default is 0.0.
+        teacher_beta : TYPE, optional
+            DESCRIPTION. The default is -1.
+        teacher_gamma : TYPE, optional
+            DESCRIPTION. The default is 1.
+        teacher_eps_mistake : TYPE, optional
+            DESCRIPTION. The default is 0.
+        teacher_eps_skip : TYPE, optional
+            DESCRIPTION. The default is 0.
+        teacher_eps_equal : TYPE, optional
+            DESCRIPTION. The default is 0.
+        '''
         # train data is trajectories, must process to sa and s..   
         self.ds = ds
         self.da = da
@@ -86,7 +128,15 @@ class RewardModel:
         self.buffer_label = np.empty((self.capacity, 1), dtype=np.float32)
         self.buffer_index = 0
         self.buffer_full = False
-                
+        
+        # print buffer memory
+        mem_available = psutil.virtual_memory().available
+        print('----------------------available memory: %f G' % (mem_available / 1e9))
+        mem_buffer_seg = self.buffer_seg1.nbytes * 2
+        mem_buffer_label = self.buffer_label.nbytes
+        print('----------------------reward buffer memory: %f G' % ((mem_buffer_seg + mem_buffer_label) / 1e9))
+        
+        # construct the ensemble reward neural networks
         self.construct_ensemble()
         self.inputs = []
         self.targets = []
@@ -94,7 +144,7 @@ class RewardModel:
         self.img_inputs = []
         self.mb_size = mb_size
         self.origin_mb_size = mb_size
-        self.train_batch_size = 128
+        self.train_batch_size = 56
         self.CEloss = nn.CrossEntropyLoss()
         self.running_means = []
         self.running_stds = []
@@ -103,7 +153,7 @@ class RewardModel:
         self.best_action = []
         self.large_batch = large_batch
         
-        # new teacher
+        # simulation human teacher
         self.teacher_beta = teacher_beta
         self.teacher_gamma = teacher_gamma
         self.teacher_eps_mistake = teacher_eps_mistake
@@ -120,9 +170,11 @@ class RewardModel:
         return  -(target * logprobs).sum() / input.shape[0]
     
     def change_batch(self, new_frac):
+        # set batch_size by alpha * batch_size
         self.mb_size = int(self.origin_mb_size*new_frac)
     
     def set_batch(self, new_batch):
+        # set batch_size dierctly
         self.mb_size = int(new_batch)
         
     def set_teacher_thres_skip(self, new_margin):
@@ -143,6 +195,8 @@ class RewardModel:
         self.opt = torch.optim.Adam(self.paramlst, lr = self.lr)
             
     def add_data(self, obs, act, rew, done):
+        # add an episode information to self.inputs and self.targets
+        # add an obs, action and reward every time
         sa_t = np.concatenate([obs, act], axis=-1)
         r_t = rew
         
@@ -150,15 +204,17 @@ class RewardModel:
         r_t = np.array(r_t)
         flat_target = r_t.reshape(1, 1)
 
-        init_data = len(self.inputs) == 0
+        init_data = (len(self.inputs) == 0)
         if init_data:
             self.inputs.append(flat_input)
             self.targets.append(flat_target)
         elif done:
+            # terminal state
             self.inputs[-1] = np.concatenate([self.inputs[-1], flat_input])
             self.targets[-1] = np.concatenate([self.targets[-1], flat_target])
             # FIFO
             if len(self.inputs) > self.max_size:
+                # queue, cover first episode inputs
                 self.inputs = self.inputs[1:]
                 self.targets = self.targets[1:]
             self.inputs.append([])
@@ -172,8 +228,11 @@ class RewardModel:
                 self.targets[-1] = np.concatenate([self.targets[-1], flat_target])
                 
     def add_data_batch(self, obses, rewards):
+        # obses = np.array(n_envs, episode_length, obs_dim+act_dim)
+        # rewards = np.array(n_envs, episode_length, 1)
         num_env = obses.shape[0]
         for index in range(num_env):
+            # not limit self.inputs size
             self.inputs.append(obses[index])
             self.targets.append(rewards[index])
         
@@ -255,10 +314,13 @@ class RewardModel:
             )
     
     def get_train_acc(self):
+        # test currect reward model
         ensemble_acc = np.array([0 for _ in range(self.de)])
         max_len = self.capacity if self.buffer_full else self.buffer_index
+        # 产生随机排列的索引
         total_batch_index = np.random.permutation(max_len)
         batch_size = 256
+        # 向上取整
         num_epochs = int(np.ceil(max_len/batch_size))
         
         total = 0
@@ -286,7 +348,9 @@ class RewardModel:
         ensemble_acc = ensemble_acc / total
         return np.mean(ensemble_acc)
     
+    
     def get_queries(self, mb_size=20):
+        # get mb_size trajectory pairs from self.inputs and elf.targets
         len_traj, max_len = len(self.inputs[0]), len(self.inputs)
         img_t_1, img_t_2 = None, None
         
@@ -304,26 +368,27 @@ class RewardModel:
         batch_index_1 = np.random.choice(max_len, size=mb_size, replace=True)
         sa_t_1 = train_inputs[batch_index_1] # Batch x T x dim of s&a
         r_t_1 = train_targets[batch_index_1] # Batch x T x 1
-                
-        sa_t_1 = sa_t_1.reshape(-1, sa_t_1.shape[-1]) # (Batch x T) x dim of s&a
-        r_t_1 = r_t_1.reshape(-1, r_t_1.shape[-1]) # (Batch x T) x 1
-        sa_t_2 = sa_t_2.reshape(-1, sa_t_2.shape[-1]) # (Batch x T) x dim of s&a
-        r_t_2 = r_t_2.reshape(-1, r_t_2.shape[-1]) # (Batch x T) x 1
-
-        # Generate time index 
-        time_index = np.array([list(range(i*len_traj,
-                                            i*len_traj+self.size_segment)) for i in range(mb_size)])
-        time_index_2 = time_index + np.random.choice(len_traj-self.size_segment, size=mb_size, replace=True).reshape(-1,1)
-        time_index_1 = time_index + np.random.choice(len_traj-self.size_segment, size=mb_size, replace=True).reshape(-1,1)
         
-        sa_t_1 = np.take(sa_t_1, time_index_1, axis=0) # Batch x size_seg x dim of s&a
-        r_t_1 = np.take(r_t_1, time_index_1, axis=0) # Batch x size_seg x 1
-        sa_t_2 = np.take(sa_t_2, time_index_2, axis=0) # Batch x size_seg x dim of s&a
-        r_t_2 = np.take(r_t_2, time_index_2, axis=0) # Batch x size_seg x 1
-                
+        if self.size_segment < len_traj:
+            sa_t_1 = sa_t_1.reshape(-1, sa_t_1.shape[-1]) # (Batch x T) x dim of s&a
+            r_t_1 = r_t_1.reshape(-1, r_t_1.shape[-1]) # (Batch x T) x 1
+            sa_t_2 = sa_t_2.reshape(-1, sa_t_2.shape[-1]) # (Batch x T) x dim of s&a
+            r_t_2 = r_t_2.reshape(-1, r_t_2.shape[-1]) # (Batch x T) x 1
+    
+            # Generate time index 
+            time_index = np.array([list(range(i*len_traj, i*len_traj+self.size_segment)) for i in range(mb_size)])
+            time_index_2 = time_index + np.random.choice(len_traj-self.size_segment, size=mb_size, replace=True).reshape(-1,1)
+            time_index_1 = time_index + np.random.choice(len_traj-self.size_segment, size=mb_size, replace=True).reshape(-1,1)
+            
+            sa_t_1 = np.take(sa_t_1, time_index_1, axis=0) # Batch x size_seg x dim of s&a
+            r_t_1 = np.take(r_t_1, time_index_1, axis=0) # Batch x size_seg x 1
+            sa_t_2 = np.take(sa_t_2, time_index_2, axis=0) # Batch x size_seg x dim of s&a
+            r_t_2 = np.take(r_t_2, time_index_2, axis=0) # Batch x size_seg x 1
+             
         return sa_t_1, sa_t_2, r_t_1, r_t_2
 
     def put_queries(self, sa_t_1, sa_t_2, labels):
+        # put query resutls to self.buffer_seg and self.buffer_label
         total_sample = sa_t_1.shape[0]
         next_index = self.buffer_index + total_sample
         if next_index >= self.capacity:
@@ -347,6 +412,7 @@ class RewardModel:
             self.buffer_index = next_index
             
     def get_label(self, sa_t_1, sa_t_2, r_t_1, r_t_2):
+        # simulation human teacher
         sum_r_t_1 = np.sum(r_t_1, axis=1)
         sum_r_t_2 = np.sum(r_t_2, axis=1)
         
@@ -563,7 +629,7 @@ class RewardModel:
                 r_hat = torch.cat([r_hat1, r_hat2], axis=-1)
 
                 # compute loss
-                uniform_index = labels == -1
+                uniform_index = (labels == -1)
                 labels[uniform_index] = 0
                 target_onehot = torch.zeros_like(r_hat).scatter(1, labels.unsqueeze(1), self.label_target)
                 target_onehot += self.label_margin

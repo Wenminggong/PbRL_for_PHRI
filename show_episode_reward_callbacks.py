@@ -12,6 +12,7 @@ custom callbacks to print episode total reward in console
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import get_monitor_files, load_results
 from stable_baselines3.common.results_plotter import ts2xy, plot_results
+from reward_model import RewardModel
 
 import os
 import json
@@ -61,13 +62,23 @@ class ShowEpisodeRewardCallback(BaseCallback):
         print('current total return: %.3f, robot return: %.3f, pref return: %.3f' % (mean_episode_total_reward, mean_episode_robot_reward, mean_episode_pref_reward))
         '''
         print('current timesteps: [%d / 16000000]' %self.model.num_timesteps)
-        if self.num_timesteps % 800000 == 0:
+        if self.num_timesteps != 0 and self.num_timesteps % 800000 == 0:
             print("-------------------------saving model--------------------------")
-            self.model.save(os.path.join(self.model.tensorboard_log, 'model', 'timesteps_'+str(self.model.num_timesteps)+"_ppo_model"))
+            if not os.path.exists(os.path.join(self.model.tensorboard_log, 'model')):
+                os.mkdir(os.path.join(self.model.tensorboard_log, 'model'))
+            self.model.save(os.path.join(self.model.tensorboard_log, 'model', 'timesteps_'+str(self.model.num_timesteps)+"_ppo_model"), exclude = ['custom_logger'])
             print("-------------------------saving env----------------------------")
             if not os.path.exists(os.path.join(self.model.tensorboard_log, 'env')):
                 os.mkdir(os.path.join(self.model.tensorboard_log, 'env'))
             self.model.env.save(os.path.join(self.model.tensorboard_log, 'env', 'timesteps_'+str(self.model.num_timesteps)+"_env"))
+            try:
+                if isinstance(self.model.reward_model, RewardModel):
+                    print("-------------------------saving reward model-------------------")
+                    if not os.path.exists(os.path.join(self.model.tensorboard_log, 'rewardmodel')):
+                        os.mkdir(os.path.join(self.model.tensorboard_log, 'rewardmodel'))
+                    self.model.reward_model.save(os.path.join(self.model.tensorboard_log, 'rewardmodel'), self.model.num_timesteps)
+            except:
+                pass
             
         
     def _on_step(self):

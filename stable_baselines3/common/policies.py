@@ -551,7 +551,16 @@ class ActorCriticPolicy(BasePolicy):
 
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
-
+    
+    # add reset_value to reset value-net weights only
+    def reset_value(self):
+        module_gains = {
+            self.value_net: 1,
+        }
+        for module, gain in module_gains.items():
+            module.apply(partial(self.init_weights, gain=gain))
+            
+            
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Forward pass in all the networks (actor and critic)
