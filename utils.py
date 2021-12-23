@@ -5,18 +5,18 @@ import gym
 import os
 import random
 import math
-import dmc2gym
-import metaworld
-import metaworld.envs.mujoco.env_dict as _env_dict
+# import dmc2gym
+# import metaworld
+# import metaworld.envs.mujoco.env_dict as _env_dict
 
 from collections import deque
 from gym.wrappers.time_limit import TimeLimit
-from rlkit.envs.wrappers import NormalizedBoxEnv
+# from rlkit.envs.wrappers import NormalizedBoxEnv
 from collections import deque
-from skimage.util.shape import view_as_windows
+# from skimage.util.shape import view_as_windows
 from torch import nn
 from torch import distributions as pyd
-    
+'''    
 def make_env(cfg):
     """Helper function to create dm_control environment"""
     if cfg.env == 'ball_in_cup_catch':
@@ -89,7 +89,7 @@ def ppo_make_metaworld_env(env_id, seed):
     env.seed(seed)
     
     return TimeLimit(env, env.max_path_length)
-
+'''
 class eval_mode(object):
     def __init__(self, *models):
         self.models = models
