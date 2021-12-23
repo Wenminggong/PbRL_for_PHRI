@@ -144,7 +144,7 @@ class RewardModel:
         self.img_inputs = []
         self.mb_size = mb_size
         self.origin_mb_size = mb_size
-        self.train_batch_size = 56
+        self.train_batch_size = 256
         self.CEloss = nn.CrossEntropyLoss()
         self.running_means = []
         self.running_stds = []
