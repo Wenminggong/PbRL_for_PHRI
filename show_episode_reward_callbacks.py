@@ -62,11 +62,11 @@ class ShowEpisodeRewardCallback(BaseCallback):
         print('current total return: %.3f, robot return: %.3f, pref return: %.3f' % (mean_episode_total_reward, mean_episode_robot_reward, mean_episode_pref_reward))
         '''
         print('current timesteps: [%d / 16000000]' %self.model.num_timesteps)
-        if self.num_timesteps != 0 and self.num_timesteps % 800000 == 0:
+        if self.num_timesteps != 0 and self.num_timesteps % 1600000 == 0:
             print("-------------------------saving model--------------------------")
             if not os.path.exists(os.path.join(self.model.tensorboard_log, 'model')):
                 os.mkdir(os.path.join(self.model.tensorboard_log, 'model'))
-            self.model.save(os.path.join(self.model.tensorboard_log, 'model', 'timesteps_'+str(self.model.num_timesteps)+"_ppo_model"), exclude = ['custom_logger'])
+            self.model.save(os.path.join(self.model.tensorboard_log, 'model', 'timesteps_'+str(self.model.num_timesteps)+"_ppo_model"), exclude = ['custom_logger', 'reward_model'])
             print("-------------------------saving env----------------------------")
             if not os.path.exists(os.path.join(self.model.tensorboard_log, 'env')):
                 os.mkdir(os.path.join(self.model.tensorboard_log, 'env'))
