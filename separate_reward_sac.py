@@ -117,6 +117,7 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
+        reward_flag: str = 'total_reward',
     ):
 
         super(SeparateRewardSAC, self).__init__(
@@ -157,6 +158,8 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
+        
+        self.reward_flag = reward_flag
 
     def _setup_model(self) -> None:
         super(SeparateRewardSAC, self)._setup_model()
@@ -387,7 +390,14 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
 
                 # Rescale and perform action
                 new_obs, reward, done, infos = env.step(action)
-
+                # for separate reward
+                if self.reward_flag == 'total_reward':
+                    train_reward = reward[0]
+                elif self.reward_flag == 'robot_reward':
+                    train_reward = reward[1]
+                else:
+                    train_reward = reward[2]
+                
                 self.num_timesteps += 1
                 episode_timesteps += 1
                 num_collected_steps += 1
@@ -398,13 +408,13 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
                 if callback.on_step() is False:
                     return RolloutReturn(0.0, num_collected_steps, num_collected_episodes, continue_training=False)
 
-                episode_reward += reward
+                episode_reward += train_reward
 
                 # Retrieve reward and episode length if using Monitor wrapper
                 self._update_info_buffer(infos, done)
 
                 # Store data in replay buffer (original action and normalized observation)
-                self._store_transition(replay_buffer, buffer_action, new_obs, reward, done, infos)
+                self._store_transition(replay_buffer, buffer_action, new_obs, train_reward, done, infos)
 
                 self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
 
