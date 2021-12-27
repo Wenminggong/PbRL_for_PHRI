@@ -398,7 +398,7 @@ class BaseAlgorithm(ABC):
         :param tb_log_name: the name of the run for tensorboard log
         :return:
         """
-        self.start_time = time.time()
+        self.start_time = time.perf_counter()
         if self.ep_info_buffer is None or reset_num_timesteps:
             # Initialize buffers if they don't exist, or reinitialize if resetting counters
             self.ep_info_buffer = deque(maxlen=100)
@@ -739,7 +739,8 @@ class BaseAlgorithm(ABC):
         """
         # Copy parameter list so we don't mutate the original dict
         data = self.__dict__.copy()
-
+        # print(type(data))
+        # print(len(data))
         # Exclude is union of specified parameters (if any) and standard exclusions
         if exclude is None:
             exclude = []
@@ -759,7 +760,8 @@ class BaseAlgorithm(ABC):
 
         # Remove parameter entries of parameters which are to be excluded
         for param_name in exclude:
-            data.pop(param_name, None)
+            if param_name in data.keys():
+                data.pop(param_name, None)
 
         # Build dict of torch variables
         pytorch_variables = None
@@ -771,5 +773,6 @@ class BaseAlgorithm(ABC):
 
         # Build dict of state_dicts
         params_to_save = self.get_parameters()
-
+        # print(type(data))
+        # print(data)
         save_to_zip_file(path, data=data, params=params_to_save, pytorch_variables=pytorch_variables)

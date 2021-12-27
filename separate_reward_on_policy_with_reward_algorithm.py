@@ -499,7 +499,7 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
 
             # Display training infos
             if log_interval is not None and iteration % log_interval == 0:
-                fps = int(self.num_timesteps / (time.time() - self.start_time))
+                fps = int(self.num_timesteps / (time.perf_counter() - self.start_time))
                 self.logger.record("time/iterations", iteration, exclude="tensorboard")
                 self.logger.record("reward/total_feed", self.total_feed)
                 self.logger.record("reward/labeled_feedback", self.labeled_feedback)
@@ -514,7 +514,7 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
                     # if self.metaworld_flag:
                     #     self.logger.record("rollout/ep_success_mean", safe_mean([ep_info["s"] for ep_info in self.ep_info_buffer]))
                 self.logger.record("time/fps", fps)
-                self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+                self.logger.record("time/time_elapsed", int(time.perf_counter() - self.start_time), exclude="tensorboard")
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
                 self.logger.dump(step=self.num_timesteps)
             
