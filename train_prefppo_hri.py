@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("--re-act", help="Last activation for reward fn", type=str, default='tanh')
     parser.add_argument("--re-num-interaction", help="how many env_episode_interactions to learn reward once", type=int, default=16000)
     parser.add_argument("--re-batch", help="Batch size for query", type=int, default=100)
-    parser.add_argument("--re-update", help="Gradient update of reward fn", type=int, default=10)
+    parser.add_argument("--re-update", help="Gradient update of reward fn", type=int, default=50)
     parser.add_argument("--re-feed-type", help="query strategy, 0: uniform, 1: disagreement, 2: entropy", type=int, default=1)
     parser.add_argument("--re-large-batch", help="size of buffer for ensemble uncertainty", type=int, default=10)
     parser.add_argument("--re-max-feed", help="# of total feedback", type=int, default=10000)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         env = make_vec_separate_reward_env(
                 args.env,     
                 n_envs=args.n_envs, 
-                monitor_dir=args.tensorboard_log,
+                monitor_dir=cur_tensorboard_log,
                 seed=seed,
                 vec_env_cls=SubprocVecEnv)
                 
@@ -196,7 +196,7 @@ if __name__ == "__main__":
         model = SeparateRewardPrefPPO(
             reward_model,
             MlpPolicy, env,
-            tensorboard_log=args.tensorboard_log, 
+            tensorboard_log=cur_tensorboard_log, 
             seed=seed, 
             learning_rate=lr_range,
             batch_size=args.batch_size,
@@ -221,7 +221,7 @@ if __name__ == "__main__":
             reward_flag=args.reward_flag)
     
         # save args
-        with open(os.path.join(args.tensorboard_log, "args.yml"), "w") as f:
+        with open(os.path.join(cur_tensorboard_log, "args.yml"), "w") as f:
             ordered_args = OrderedDict([(key, vars(args)[key]) for key in sorted(vars(args).keys())])
             yaml.dump(ordered_args, f)
             
