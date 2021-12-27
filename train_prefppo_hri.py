@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # unsupervised pretrain
     parser.add_argument("--unsuper-step", help="# of steps for unsupervised learning", type=int, default=32000)
     parser.add_argument("--unsuper-n-epochs", help="# of steps for unsupervised learning", type=int, default=50)
-    parser.add_argument("--unsuper-flag", help="use unsupervised pre-train or not", type=bool, default=False)
+    parser.add_argument("--unsuper-flag", help="use unsupervised pre-train or not", type=str, default='False')
     # reward learning
     parser.add_argument("--re-lr", help="Learning rate of reward fn", type=float, default=3e-4)
     parser.add_argument("--re-segment", help="Size of segment", type=int, default=200)
@@ -131,6 +131,10 @@ if __name__ == "__main__":
     # args.tensorboard_log += '_nepochs_' + str(args.n_epochs)
     # args.tensorboard_log += '_actfun_' + args.act_fun
     args.tensorboard_log += '_maxfeed_' + str(args.re_max_feed)
+    if args.unsuper_flag == 'True':
+        args.unsuper_flag = True
+    else:
+        args.unsuper_flag = False
     args.tensorboard_log += '_unsuper_' + str(args.unsuper_flag)
     args.tensorboard_log += '_unsuper_steps_' + str(args.unsuper_step)
     args.tensorboard_log += '_update_' + str(args.unsuper_n_epochs)
