@@ -507,9 +507,9 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
                 if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
                     self.avg_train_true_return = safe_mean([ep_info["total_reward"] for ep_info in self.ep_info_buffer])
                     # self.logger.record("rollout/ep_rew_mean", self.avg_train_true_return)
-                    self.logger.record("rollout/ep_total_reward_mean", safe_mean([ep_info["total_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
-                    self.logger.record("rollout/ep_robot_reward_mean", safe_mean([ep_info["robot_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
-                    self.logger.record("rollout/ep_pref_reward_mean", safe_mean([ep_info["pref_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
+                    self.logger.record("rollout/ep_total_reward_mean", safe_mean([ep_info["total_reward"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_robot_reward_mean", safe_mean([ep_info["robot_reward"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_pref_reward_mean", safe_mean([ep_info["pref_reward"] for ep_info in self.ep_info_buffer]))
                     self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
                     # if self.metaworld_flag:
                     #     self.logger.record("rollout/ep_success_mean", safe_mean([ep_info["s"] for ep_info in self.ep_info_buffer]))
@@ -573,7 +573,7 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
 
             # Display training infos
             if log_interval is not None and iteration % log_interval == 0:
-                fps = int(self.num_timesteps / (time.time() - self.start_time))
+                fps = int(self.num_timesteps / (time.perf_counter() - self.start_time))
                 self.logger.record("time/iterations", iteration, exclude="tensorboard")
                 self.logger.record("reward/total_feed", self.total_feed)
                 self.logger.record("reward/labeled_feedback", self.labeled_feedback)
@@ -581,14 +581,14 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
                 if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
                     self.avg_train_true_return = safe_mean([ep_info["total_reward"] for ep_info in self.ep_info_buffer])
                     # self.logger.record("rollout/ep_rew_mean", self.avg_train_true_return)
-                    self.logger.record("rollout/ep_total_reward_mean", safe_mean([ep_info["total_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
-                    self.logger.record("rollout/ep_robot_reward_mean", safe_mean([ep_info["robot_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
-                    self.logger.record("rollout/ep_pref_reward_mean", safe_mean([ep_info["pref_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
+                    self.logger.record("rollout/ep_total_reward_mean", safe_mean([ep_info["total_reward"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_robot_reward_mean", safe_mean([ep_info["robot_reward"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_pref_reward_mean", safe_mean([ep_info["pref_reward"] for ep_info in self.ep_info_buffer]))
                     self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
                     # if self.metaworld_flag:
                     #     self.logger.record("rollout/ep_success_mean", safe_mean([ep_info["s"] for ep_info in self.ep_info_buffer]))
                 self.logger.record("time/fps", fps)
-                self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+                self.logger.record("time/time_elapsed", int(time.perf_counter() - self.start_time), exclude="tensorboard")
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
                 self.logger.dump(step=self.num_timesteps)
             

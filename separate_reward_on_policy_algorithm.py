@@ -198,9 +198,9 @@ class SeparateRewardOnPolicyAlgorithm(OnPolicyAlgorithm):
                 fps = int(self.num_timesteps / (time.perf_counter() - self.start_time))
                 self.logger.record("time/iterations", iteration, exclude="tensorboard")
                 if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                    self.logger.record("rollout/ep_total_reward_mean", safe_mean([ep_info["total_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
-                    self.logger.record("rollout/ep_robot_reward_mean", safe_mean([ep_info["robot_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
-                    self.logger.record("rollout/ep_pref_reward_mean", safe_mean([ep_info["pref_reward"] for ep_info in list(self.ep_info_buffer)[-10:]]))
+                    self.logger.record("rollout/ep_total_reward_mean", safe_mean([ep_info["total_reward"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_robot_reward_mean", safe_mean([ep_info["robot_reward"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_pref_reward_mean", safe_mean([ep_info["pref_reward"] for ep_info in self.ep_info_buffer]))
                     self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in list(self.ep_info_buffer)[-10:]]))
                     
                 self.logger.record("time/fps", fps)
