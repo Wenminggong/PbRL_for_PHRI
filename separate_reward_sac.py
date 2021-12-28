@@ -333,6 +333,62 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
         self.logger.dump(step=self.num_timesteps)
     
     
+    def _store_transition(
+        self,
+        replay_buffer: ReplayBuffer,
+        buffer_action: np.ndarray,
+        new_obs: np.ndarray,
+        reward: np.ndarray,
+        done: np.ndarray,
+        infos: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Store transition in the replay buffer.
+        store obs and reward directly
+
+        :param replay_buffer: Replay buffer object where to store the transition.
+        :param buffer_action: normalized action
+        :param new_obs: next observation in the current episode
+            or first observation of the episode (when done is True)
+        :param reward: reward for the current transition
+        :param done: Termination signal
+        :param infos: List of additional information about the transition.
+            It may contain the terminal observations and information about timeout.
+        """
+        # # Store only the unnormalized version
+        # if self._vec_normalize_env is not None:
+        #     new_obs_ = self._vec_normalize_env.get_original_obs()
+        #     reward_ = self._vec_normalize_env.get_original_reward()
+        # else:
+        #     # Avoid changing the original ones
+        #     self._last_original_obs, new_obs_, reward_ = self._last_obs, new_obs, reward
+        self._last_original_obs, new_obs_, reward_ = self._last_obs, new_obs, reward
+
+        # As the VecEnv resets automatically, new_obs is already the
+        # first observation of the next episode
+        if done and infos[0].get("terminal_observation") is not None:
+            next_obs = infos[0]["terminal_observation"]
+            # VecNormalize normalizes the terminal observation
+            if self._vec_normalize_env is not None:
+                next_obs = self._vec_normalize_env.unnormalize_obs(next_obs)
+        else:
+            next_obs = new_obs_
+        
+        replay_buffer.add(
+            self._last_original_obs,
+            next_obs,
+            buffer_action,
+            reward_,
+            done,
+            infos,
+        )
+
+        self._last_obs = new_obs
+        # Save the unnormalized observation
+        if self._vec_normalize_env is not None:
+            self._last_original_obs = new_obs_
+    
+    
     def collect_rollouts(
         self,
         env: VecEnv,
@@ -390,13 +446,13 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
 
                 # Rescale and perform action
                 new_obs, reward, done, infos = env.step(action)
-                # for separate reward
+                # for separate reward, reward is an array [[total_reward, robot_reward, pref_reward]]
                 if self.reward_flag == 'total_reward':
-                    train_reward = reward[0]
+                    train_reward = reward[:, 0]
                 elif self.reward_flag == 'robot_reward':
-                    train_reward = reward[1]
+                    train_reward = reward[:, 1]
                 else:
-                    train_reward = reward[2]
+                    train_reward = reward[:, 2]
                 
                 self.num_timesteps += 1
                 episode_timesteps += 1
