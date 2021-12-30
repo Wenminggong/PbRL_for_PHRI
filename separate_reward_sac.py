@@ -470,7 +470,7 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
                 self._update_info_buffer(infos, done)
 
                 # Store data in replay buffer (original action and normalized observation)
-                self._store_transition(replay_buffer, buffer_action, new_obs, train_reward, done, infos)
+                self._store_transition(replay_buffer, action, new_obs, train_reward, done, infos)
 
                 self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
 
