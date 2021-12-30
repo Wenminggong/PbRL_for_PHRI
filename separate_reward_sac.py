@@ -467,8 +467,8 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
 
                 episode_reward += train_reward
 
-                # # Retrieve reward and episode length if using Monitor wrapper
-                # self._update_info_buffer(infos, done)
+                # Retrieve reward and episode length if using Monitor wrapper
+                self._update_info_buffer(infos, dones)
 
                 # Store data in replay buffer (original action and normalized observation)
                 self._store_transition(replay_buffer, action, new_obs, train_reward, dones, infos)
