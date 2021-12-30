@@ -445,7 +445,8 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
                 action, buffer_action = self._sample_action(learning_starts, action_noise)
 
                 # Rescale and perform action
-                new_obs, reward, done, infos = env.step(action)
+                new_obs, reward, dones, infos = env.step(action)
+                done = dones[0]
                 # for separate reward, reward is an array [[total_reward, robot_reward, pref_reward]]
                 if self.reward_flag == 'total_reward':
                     train_reward = reward[:, 0]
@@ -466,11 +467,11 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
 
                 episode_reward += train_reward
 
-                # Retrieve reward and episode length if using Monitor wrapper
-                self._update_info_buffer(infos, done)
+                # # Retrieve reward and episode length if using Monitor wrapper
+                # self._update_info_buffer(infos, done)
 
                 # Store data in replay buffer (original action and normalized observation)
-                self._store_transition(replay_buffer, action, new_obs, train_reward, done, infos)
+                self._store_transition(replay_buffer, action, new_obs, train_reward, dones, infos)
 
                 self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
 
