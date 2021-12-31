@@ -465,7 +465,7 @@ class SeparateRewardSAC(OffPolicyAlgorithm):
                 if callback.on_step() is False:
                     return RolloutReturn(0.0, num_collected_steps, num_collected_episodes, continue_training=False)
 
-                episode_reward += train_reward
+                episode_reward += train_reward[0]
 
                 # Retrieve reward and episode length if using Monitor wrapper
                 self._update_info_buffer(infos, dones)
