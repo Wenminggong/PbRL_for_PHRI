@@ -70,7 +70,8 @@ class EntReplayBuffer(BaseBuffer):
         else:
             full_obs = th.as_tensor(self.observations[:self.pos], device=self.device)
         obs = th.as_tensor(obs, device=self.device)
-        
+        # print(full_obs)
+        # print(obs)
         with th.no_grad():
             dists = []
             for idx in range(len(full_obs) // batch_size + 1):
@@ -80,10 +81,13 @@ class EntReplayBuffer(BaseBuffer):
                     obs[:, None, :] - full_obs[None, start:end, :], dim=-1, p=2
                 )
                 dists.append(dist)
-
+            # print(dists)
             dists = th.cat(dists, dim=1)
+            if len(dists[0]) <= k:
+                k = len(dists[0]) - 1
             knn_dists = th.kthvalue(dists, k=k + 1, dim=1).values
             state_entropy = knn_dists
+            # print(state_entropy)
         return state_entropy.unsqueeze(1)
 
     def add_obs(self, obs: np.ndarray) -> None:

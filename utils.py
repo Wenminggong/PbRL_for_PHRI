@@ -210,6 +210,7 @@ class SquashedNormal(pyd.transformed_distribution.TransformedDistribution):
     
 class TorchRunningMeanStd:
     def __init__(self, epsilon=1e-4, shape=(), device=None):
+        self.device = device
         self.mean = torch.zeros(shape, device=device)
         self.var = torch.ones(shape, device=device)
         self.count = epsilon
@@ -217,7 +218,10 @@ class TorchRunningMeanStd:
     def update(self, x):
         with torch.no_grad():
             batch_mean = torch.mean(x, axis=0)
-            batch_var = torch.var(x, axis=0)
+            if x.shape[0] == 1:
+                batch_var = torch.from_numpy(np.var(x.to('cpu').numpy(), axis=0)).to(self.device)
+            else:
+                batch_var = torch.var(x, axis=0)
             batch_count = x.shape[0]
             self.update_from_moments(batch_mean, batch_var, batch_count)
 
