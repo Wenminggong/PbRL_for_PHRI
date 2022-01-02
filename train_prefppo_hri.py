@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--env", type=str, default="FeedingSeparateRewardBaxter-v1", help="environment name")
     parser.add_argument("-tb", "--tensorboard-log", help="Tensorboard log dir", default="logs/PrefPPO/", type=str)
     parser.add_argument("--seed", help="Random generator seed", type=int, default=2021)
-    parser.add_argument("--n-envs", help="# of parallel environments", type=int, default=16)
+    parser.add_argument("--n-envs", help="# of parallel environments", type=int, default=10)
     parser.add_argument("--n-steps", help="# of steps to run for each environment per update", type=int, default=200)
     parser.add_argument("--lr", help="learning rate", type=float, default=3e-4)
     parser.add_argument("--total-timesteps", help="total timesteps", type=int, default=16000000)
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # unsupervised pretrain
     parser.add_argument("--unsuper-step", help="# of steps for unsupervised learning", type=int, default=32000)
     parser.add_argument("--unsuper-n-epochs", help="# of steps for unsupervised learning", type=int, default=50)
-    parser.add_argument("--unsuper-flag", help="use unsupervised pre-train or not", type=str, default='False')
+    parser.add_argument("--unsuper-flag", help="use unsupervised pre-train or not", type=str, default='True')
     # reward learning
     parser.add_argument("--re-lr", help="Learning rate of reward fn", type=float, default=3e-4)
     parser.add_argument("--re-segment", help="Size of segment", type=int, default=200)

@@ -9,6 +9,7 @@ import numpy as np
 import torch as th
 
 from stable_baselines3.common.base_class import BaseAlgorithm
+
 from stable_baselines3.common.buffers import DictReplayBuffer, ReplayBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.noise import ActionNoise
@@ -492,7 +493,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 next_obs = self._vec_normalize_env.unnormalize_obs(next_obs)
         else:
             next_obs = new_obs_
-
+        
         replay_buffer.add(
             self._last_original_obs,
             next_obs,

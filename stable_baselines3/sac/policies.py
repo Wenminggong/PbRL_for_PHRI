@@ -262,7 +262,7 @@ class SACPolicy(BasePolicy):
                 net_arch = [256, 256]
 
         actor_arch, critic_arch = get_actor_critic_arch(net_arch)
-
+        
         self.net_arch = net_arch
         self.activation_fn = activation_fn
         self.net_args = {
@@ -360,6 +360,12 @@ class SACPolicy(BasePolicy):
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
         return self.actor(observation, deterministic)
+    
+    # add reset_value to reset value-net weights only
+    def reset_critic(self):
+        # TODO: reset value-net weight
+        self.critic.apply(self.init_weights)
+        self.critic_target.load_state_dict(self.critic.state_dict())
 
 
 MlpPolicy = SACPolicy

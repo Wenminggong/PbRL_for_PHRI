@@ -15,6 +15,7 @@ import gym
 from stable_baselines3.common import base_class
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecEnv, DummyVecEnv
 from separate_reward_ppo import SeparateRewardPPO
+from separate_reward_sac import SeparateRewardSAC
 from separate_reward_vec_normalize import SeparateRewardVecNormalize
 from make_vec_separate_reward_env import make_vec_separate_reward_env
 import numpy as np
@@ -102,22 +103,30 @@ def normalize_obs(obs, nor_venv):
 
 if __name__ == "__main__":
     env_name = 'FeedingSeparateRewardBaxter-v1'
-    model = SeparateRewardPPO.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
-                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
-                                                'model', 'timesteps_2400000_ppo_model.zip'))
-
+    # model = SeparateRewardPPO.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
+    #                                             'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
+    #                                             'model', 'timesteps_2400000_ppo_model.zip'))
+    # model = SeparateRewardPPO.load(os.path.join('logs/PrefPPO_results', 'timesteps_3200000_ppo_model.zip'))
+    model = SeparateRewardSAC.load(os.path.join('logs/SAC_results', 'normalized_FeedingSeparateRewardBaxter-v1',
+                                                'lr_0.0003_tau_0.005_gamma_0.99_train-freq_10_gradient-steps_1_total-steps_6400000_batch_512_nenvs_1_ent_auto_0.1_hidden_512_sde_1_sdefreq_4_target-update_1_actfun_relu_robot_reward_seed_856', 
+                                                'model', 'timesteps_6400000_ppo_model.zip'))
+    
     venv = make_vec_separate_reward_env(env_id=env_name,
                                 n_envs=10,
                                 vec_env_cls=SubprocVecEnv,
                                 seed = 856)
-    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
-                                                'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
-                                                'env', 'timesteps_2400000_env'), venv)
+    # nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
+    #                                             'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
+    #                                             'env', 'timesteps_2400000_env'), venv)
+    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/SAC_results', 'normalized_FeedingSeparateRewardBaxter-v1',
+                                                'lr_0.0003_tau_0.005_gamma_0.99_train-freq_10_gradient-steps_1_total-steps_6400000_batch_512_nenvs_1_ent_auto_0.1_hidden_512_sde_1_sdefreq_4_target-update_1_actfun_relu_robot_reward_seed_856', 
+                                                'env', 'timesteps_6400000_env'), venv)
     
     mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate = evaluate_policy_hri(model, nor_venv, n_eval_episodes=20)
     print('mean_total_return: {}, mean_robot_return: {}, mean_pref_return: {}'.format(mean_total_return, mean_robot_return, mean_pref_return))
     print('std_total_return: {}, std_robot_return: {}, std_pref_return: {}'.format(std_total_return, std_robot_return, std_pref_return))
     print('task_success_rate: {}'.format(task_success_rate))
+    
     
     # render the policy in env
     env = gym.make(env_name)
@@ -127,8 +136,8 @@ if __name__ == "__main__":
     length_list = []
     # while True:
     for i in range(2):
-        env.seed(50 * i)
-        env.action_space.seed(50 * i)
+        env.seed(100 * i)
+        env.action_space.seed(100 * i)
         done = False
         env.render()
         observation = env.reset()

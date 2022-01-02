@@ -96,8 +96,8 @@ def data_to_json(data: Dict[str, Any]) -> str:
             # Also store type of the class for consumption
             # from other languages/humans, so we have an
             # idea what was being stored.
+            # print(data_key)
             base64_encoded = base64.b64encode(cloudpickle.dumps(data_item)).decode()
-
             # Use ":" to make sure we do
             # not override these keys
             # when we include variables of the object later

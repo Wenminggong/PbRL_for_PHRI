@@ -188,7 +188,7 @@ class ReplayBuffer(BaseBuffer):
             mem_available = psutil.virtual_memory().available
 
         self.optimize_memory_usage = optimize_memory_usage
-
+        
         self.observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape, dtype=observation_space.dtype)
 
         if optimize_memory_usage:

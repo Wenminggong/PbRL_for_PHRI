@@ -383,7 +383,9 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             obs_origin = env.get_original_obs()
             replay_buffer.add_obs(obs_origin)
             state_entropy = replay_buffer.compute_state_entropy(obs_origin)
+            # print(state_entropy)
             self.s_ent_stats.update(state_entropy)
+            # print(self.s_ent_stats.var)
             norm_state_entropy = state_entropy / self.s_ent_stats.std
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
