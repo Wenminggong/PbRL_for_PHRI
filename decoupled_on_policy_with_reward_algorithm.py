@@ -1,5 +1,5 @@
 '''
-adapted from B-Pref on_policy_with_reward_algorithm
+decoupled on_policy_with_reward_algorithm
 '''
 
 import time
@@ -9,9 +9,11 @@ import gym
 import numpy as np
 import torch as th
 
+from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.common import logger
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.buffers import RolloutBuffer
+# from stable_baselines3.common.buffers import RolloutBuffer
+from new_buffers import RolloutBuffer
 from new_buffers import EntReplayBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import ActorCriticPolicy
@@ -24,9 +26,9 @@ from logger import Logger
 import utils
 
 
-class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
+class DecoupledOnPolicyRewardAlgorithm(BaseAlgorithm):
     """
-    The base for On-Policy algorithms with reward learning for Assistive-Gym (ex: A2C/PPO).
+    The base for On-Policy algorithms with reward learning for Assistive-Gym (ex: A2C/PPO), for decoupled on-policy
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
@@ -88,9 +90,12 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
         max_ep_len: int = 1000,
         unsuper_step: int = 0,
         reward_flag: str = 'total_reward',
+        reward_decay_type: str = 'linear',
+        reward_decay_rate: Union[float, Schedule] = 10.0,
+        reward_rou: float = 0.001,
     ):
 
-        super(SeparateRewardOnPolicyRewardAlgorithm, self).__init__(
+        super(DecoupledOnPolicyRewardAlgorithm, self).__init__(
             policy=policy,
             env=env,
             policy_base=ActorCriticPolicy,
@@ -137,6 +142,11 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
         
         self.reward_flag = reward_flag
         
+        # for task reward decay
+        self.reward_decay_type = reward_decay_type
+        self.reward_dacay_rate = reward_decay_rate
+        self.rou = reward_rou
+        
         if _init_setup_model:
             self._setup_model()
 
@@ -173,7 +183,8 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             **self.policy_kwargs  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
-    
+        
+        self.reward_dacay_schedule = get_schedule_fn(self.reward_dacay_rate)
     
     def learn_reward(self) -> None:
         
@@ -266,6 +277,8 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             else:
                 train_rewards = rewards[:, 2]
             
+            task_rewards = rewards[:, 1]
+            
             batch_reward = train_rewards.reshape(-1,1,1)
             
             # reward estimator
@@ -331,7 +344,8 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             if isinstance(self.action_space, gym.spaces.Discrete):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
-            rollout_buffer.add(self._last_obs, actions, pred_reward, self._last_episode_starts, values, log_probs)
+            # add true task_rewards to rollout_buffer
+            rollout_buffer.add(self._last_obs, actions, pred_reward, task_rewards, self._last_episode_starts, values, log_probs)
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
@@ -339,8 +353,15 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             # Compute value for the last timestep
             obs_tensor = th.as_tensor(new_obs).to(self.device)
             _, values, _ = self.policy.forward(obs_tensor)
-
-        rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
+        
+        # compute use shapping reward
+        if self.reward_decay_type == 'linear':
+            rate = self.reward_dacay_schedule(self._current_progress_remaining)
+            rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones, reward_decay_rate=rate)
+        else:
+            rate = (1 - self.rou) ** self.num_timesteps * self.reward_dacay_schedule(1)
+            rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones, reward_decay_rate=rate)
+        self.logger.record("train/task_reward_rate", rate)
 
         callback.on_rollout_end()
 
@@ -397,6 +418,8 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
                 train_rewards = rewards[:, 1]
             else:
                 train_rewards = rewards[:, 2]
+            # set task_reward as 0
+            task_rewards = np.zeros(rewards[:, 1].shape, dtype=np.float32)
             
             next_obs_origin = env.get_original_obs()            
             batch_reward = train_rewards.reshape(-1,1,1)
@@ -448,7 +471,7 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             if isinstance(self.action_space, gym.spaces.Discrete):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
-            rollout_buffer.add(self._last_obs, actions, pred_reward, self._last_episode_starts, values, log_probs)
+            rollout_buffer.add(self._last_obs, actions, pred_reward, task_rewards, self._last_episode_starts, values, log_probs)
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
@@ -456,8 +479,15 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
             # Compute value for the last timestep
             obs_tensor = th.as_tensor(new_obs).to(self.device)
             _, values, _ = self.policy.forward(obs_tensor)
-
-        rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
+        
+        # compute use shapping reward
+        if self.reward_decay_type == 'linear':
+            rate = self.reward_dacay_schedule(self._current_progress_remaining)
+            rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones, reward_decay_rate=rate)
+        else:
+            rate = (1 - self.rou) ** self.num_timesteps * self.reward_dacay_schedule(1)
+            rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones, reward_decay_rate=rate)
+        self.logger.record("train/task_reward_rate", rate)
 
         callback.on_rollout_end()
 
@@ -481,7 +511,7 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
         tb_log_name: str = "prefppo",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> "SeparateRewardOnPolicyRewardAlgorithm":
+    ) -> "DecoupledOnPolicyRewardAlgorithm":
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
@@ -543,7 +573,7 @@ class SeparateRewardOnPolicyRewardAlgorithm(BaseAlgorithm):
         tb_log_name: str = "prefppo",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> "SeparateRewardOnPolicyRewardAlgorithm":
+    ) -> "DecoupledOnPolicyRewardAlgorithm":
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(

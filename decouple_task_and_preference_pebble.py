@@ -64,7 +64,7 @@ class DecoupledPEBBLE(DecoupledOffPolicyRewardAlgorithm):
         reward_flag: str = 'total_reward',
         reward_decay_type: str = 'linear',
         reward_decay_rate: Union[float, Schedule] = 10.0,
-        reward_rou: float = 0.01,
+        reward_rou: float = 0.001,
     ):
 
         super(DecoupledPEBBLE, self).__init__(
