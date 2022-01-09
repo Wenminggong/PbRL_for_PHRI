@@ -90,8 +90,8 @@ def evaluate_policy_hri(
     std_pref_return = np.std(np.array(episode_pref_returns))
     task_success_rate = sum(task_success) / len(task_success)
     
-    print(episode_total_returns)
-    print(episode_pref_returns)
+    # print(episode_total_returns)
+    # print(episode_pref_returns)
     if return_episode_rewards:
         return episode_total_returns, episode_robot_returns, episode_pref_returns, episode_lengths
     return mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     # model = SeparateRewardPPO.load(os.path.join('logs/PPO_results', 'normalize_obs_tanh', 
     #                                             'lr_0.0003_batch_256_nenvs_16_nsteps_200_ent_0.0_hidden_256_sde_1_sdefreq_4_targetkl_0.03_gae_0.95_clip_0.3_nepochs_10_actfun_tanh_robot_reward_seed_856',
     #                                             'model', 'timesteps_2400000_ppo_model.zip'))
-    model = SeparateRewardSAC.load(os.path.join('logs/SAC_results', 'normalized_FeedingSeparateRewardBaxter-v1', 'robot_reward', 'timesteps_4800000_ppo_model.zip'))
+    model = SeparateRewardSAC.load(os.path.join('logs/PEBBLE_results', 'model', 'timesteps_4800000_ppo_model.zip'))
     # model = SeparateRewardSAC.load(os.path.join('logs/SAC_results', 'normalized_FeedingSeparateRewardBaxter-v1',
     #                                             'lr_0.0003_tau_0.005_gamma_0.99_train-freq_10_gradient-steps_1_total-steps_6400000_batch_512_nenvs_1_ent_auto_0.1_hidden_512_sde_1_sdefreq_4_target-update_1_actfun_relu_robot_reward_seed_856', 
     #                                             'model', 'timesteps_6400000_ppo_model.zip'))
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     # nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/SAC_results', 'normalized_FeedingSeparateRewardBaxter-v1',
     #                                             'lr_0.0003_tau_0.005_gamma_0.99_train-freq_10_gradient-steps_1_total-steps_6400000_batch_512_nenvs_1_ent_auto_0.1_hidden_512_sde_1_sdefreq_4_target-update_1_actfun_relu_robot_reward_seed_856', 
     #                                             'env', 'timesteps_6400000_env'), venv)
-    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/SAC_results', 'normalized_FeedingSeparateRewardBaxter-v1', 'robot_reward', 'timesteps_4800000_env'), venv)
+    nor_venv = SeparateRewardVecNormalize.load(os.path.join('logs/PEBBLE_results', 'env', 'timesteps_4800000_env'), venv)
     
     mean_total_return, mean_robot_return, mean_pref_return, std_total_return, std_robot_return, std_pref_return, task_success_rate = evaluate_policy_hri(model, nor_venv, n_eval_episodes=20)
     print('mean_total_return: {}, mean_robot_return: {}, mean_pref_return: {}'.format(mean_total_return, mean_robot_return, mean_pref_return))
