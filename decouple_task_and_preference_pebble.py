@@ -221,7 +221,7 @@ class DecoupledPEBBLE(DecoupledOffPolicyRewardAlgorithm):
                     train_rewards = relabel_rewards + self.reward_dacay_schedule(self._current_progress_remaining) * replay_data.true_rewards
                     self.logger.record("train/task_reward_rate", self.reward_dacay_schedule(self._current_progress_remaining))
                 else:
-                    train_rewards = relabel_rewards + (1 - self.rou) ** self.num_timesteps * self.reward_dacay_schedule(1) * replay_data.true_rewards
+                    train_rewards = relabel_rewards + (1 - self.rou) ** (self.num_timesteps / 2) * self.reward_dacay_schedule(1) * replay_data.true_rewards
                     self.logger.record("train/task_reward_rate", (1 - self.rou) ** self.num_timesteps * self.reward_dacay_schedule(1))
                 
                 # target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values

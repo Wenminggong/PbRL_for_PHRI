@@ -485,7 +485,7 @@ class DecoupledOnPolicyRewardAlgorithm(BaseAlgorithm):
             rate = self.reward_dacay_schedule(self._current_progress_remaining)
             rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones, reward_decay_rate=rate)
         else:
-            rate = (1 - self.rou) ** self.num_timesteps * self.reward_dacay_schedule(1)
+            rate = (1 - self.rou) ** (self.num_timesteps / 2) * self.reward_dacay_schedule(1)
             rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones, reward_decay_rate=rate)
         self.logger.record("train/task_reward_rate", rate)
 
