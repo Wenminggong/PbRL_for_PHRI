@@ -161,6 +161,7 @@ class RewardModel:
         self.teacher_eps_skip = teacher_eps_skip
         self.teacher_thres_skip = 0
         self.teacher_thres_equal = 0
+        self.min_return = -350
         
         self.label_margin = label_margin
         self.label_target = 1 - 2*self.label_margin
@@ -178,11 +179,12 @@ class RewardModel:
         self.mb_size = int(new_batch)
         
     def set_teacher_thres_skip(self, new_margin):
-        self.teacher_thres_skip = new_margin * self.teacher_eps_skip
+        # self.teacher_thres_skip = new_margin * self.teacher_eps_skip
+        self.teacher_thres_skip = (new_margin - self.min_return) * self.teacher_eps_skip
         
     def set_teacher_thres_equal(self, new_margin):
         # self.teacher_thres_equal = new_margin * self.teacher_eps_equal
-        self.teacher_thres_equal = (new_margin + 350) * self.teacher_eps_equal
+        self.teacher_thres_equal = (new_margin - self.min_return) * self.teacher_eps_equal
         
         
     # construct ensemble reward models
@@ -426,7 +428,8 @@ class RewardModel:
         # if self.teacher_thres_skip > 0:
         if self.teacher_eps_skip > 0:
             max_r_t = np.maximum(sum_r_t_1, sum_r_t_2)
-            max_index = (max_r_t > self.teacher_thres_skip).reshape(-1)
+            # max_index = (max_r_t > self.teacher_thres_skip).reshape(-1)
+            max_index = ((max_r_t-self.min_return) > self.teacher_thres_skip).reshape(-1)
             print('not_skip_nums:', sum(max_index))
             if sum(max_index) == 0:
                 return None, None, None, None, []
