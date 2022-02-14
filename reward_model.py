@@ -181,7 +181,9 @@ class RewardModel:
         self.teacher_thres_skip = new_margin * self.teacher_eps_skip
         
     def set_teacher_thres_equal(self, new_margin):
-        self.teacher_thres_equal = new_margin * self.teacher_eps_equal
+        # self.teacher_thres_equal = new_margin * self.teacher_eps_equal
+        self.teacher_thres_equal = (new_margin + 350) * self.teacher_eps_equal
+        
         
     # construct ensemble reward models
     def construct_ensemble(self):
@@ -421,10 +423,11 @@ class RewardModel:
         sum_r_t_2 = np.sum(r_t_2, axis=1)
         
         # skip the query
-        if self.teacher_thres_skip > 0: 
+        # if self.teacher_thres_skip > 0:
+        if self.teacher_eps_skip > 0:
             max_r_t = np.maximum(sum_r_t_1, sum_r_t_2)
             max_index = (max_r_t > self.teacher_thres_skip).reshape(-1)
-            print('not_skip_nums:', len(max_index))
+            print('not_skip_nums:', sum(max_index))
             if sum(max_index) == 0:
                 return None, None, None, None, []
 
@@ -437,7 +440,7 @@ class RewardModel:
         
         # equally preferable
         margin_index = (np.abs(sum_r_t_1 - sum_r_t_2) < self.teacher_thres_equal).reshape(-1)
-        print('equal_nums:', len(margin_index))
+        print('equal_nums:', sum(margin_index))
         # perfectly rational
         seg_size = r_t_1.shape[1]
         temp_r_t_1 = r_t_1.copy()
@@ -462,11 +465,12 @@ class RewardModel:
         len_labels = labels.shape[0]
         rand_num = np.random.rand(len_labels)
         noise_index = rand_num <= self.teacher_eps_mistake
+        print('mistake_nums:', sum(noise_index))
         labels[noise_index] = 1 - labels[noise_index]
  
         # equally preferable
         labels[margin_index] = -1 
-        
+        print('len_labels:', len(labels))
         return sa_t_1, sa_t_2, r_t_1, r_t_2, labels
 
     
