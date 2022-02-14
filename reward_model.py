@@ -424,6 +424,7 @@ class RewardModel:
         if self.teacher_thres_skip > 0: 
             max_r_t = np.maximum(sum_r_t_1, sum_r_t_2)
             max_index = (max_r_t > self.teacher_thres_skip).reshape(-1)
+            print('not_skip_nums:', len(max_index))
             if sum(max_index) == 0:
                 return None, None, None, None, []
 
@@ -436,7 +437,7 @@ class RewardModel:
         
         # equally preferable
         margin_index = (np.abs(sum_r_t_1 - sum_r_t_2) < self.teacher_thres_equal).reshape(-1)
-        
+        print('equal_nums:', len(margin_index))
         # perfectly rational
         seg_size = r_t_1.shape[1]
         temp_r_t_1 = r_t_1.copy()
